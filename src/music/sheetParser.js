@@ -6,20 +6,21 @@ import { keyPrefersSharps } from './theory.js';
  * Determine if text is ChordPro format ([Am]Hello [F]world)
  */
 function isChordProFormat(text) {
-  return /\[[A-G][^\]]*\]/.test(text);
+  // Match actual chords inside brackets like [Am] or [F#m], rather than just any tag like [Chorus]
+  return /\[[A-G][b#]?(?:m(?:aj)?|M|aug(?:5)?|dim(?:7)?|sus[24]?|add)?(?:(?:maj|M)?(?:2|4|5|6|7|9|11|13))?(?:[b#]\d+)*(?:\/[A-G][b#]?)?\]/.test(text);
 }
 
 /**
  * Transpose a full chord sheet by semitones.
- * Auto-detects ChordPro vs plain text format.
+ * Auto-detects ChordPro vs plain text format unless format is explicitly provided.
  * Falls back to regex-based transposition if ChordSheetJS fails.
  */
-export function transposeSheet(text, semitones, useFlats = false) {
+export function transposeSheet(text, semitones, useFlats = false, format = 'auto') {
   if (!text.trim() || semitones === 0) return text;
 
   // --- Try ChordSheetJS first ---
   try {
-    const chordProMode = isChordProFormat(text);
+    const chordProMode = format === 'chordpro' || (format === 'auto' && isChordProFormat(text));
     let parser, formatter;
 
     if (chordProMode) {
