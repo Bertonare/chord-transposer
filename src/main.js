@@ -5,6 +5,7 @@ import { detectAudioKey } from './audio/keyDetector.js';
 import { pitchShiftAudio } from './audio/pitchShifter.js';
 import { encodeWAV, encodeMP3, triggerDownload } from './audio/encoder.js';
 import { drawWaveform } from './ui/waveformVisualizer.js';
+import { t, initI18n, setLanguage, getCurrentLanguage } from './i18n.js';
 
 // --- State ---
 const state = {
@@ -26,6 +27,7 @@ const state = {
   audioTargetKey: null,
   audioTargetMode: 'major',
   audioOutputFormat: 'wav',
+  audioExportQuality: 'standard', // standard | compact
   audioPreviewPlayer: null,
 };
 
@@ -96,6 +98,9 @@ const audioModeMinor = $('audio-mode-minor');
 
 const fmtWav = $('fmt-wav');
 const fmtMp3 = $('fmt-mp3');
+const audioQualitySection = $('audio-quality-section');
+const qltStandard = $('qlt-standard');
+const qltCompact = $('qlt-compact');
 const btnTransposeAudio = $('btn-transpose-audio');
 
 const audioProcessProgress = $('audio-process-progress');
@@ -112,6 +117,23 @@ function showToast(msg, type = 'success') {
 
 // --- Initialization ---
 function init() {
+  initI18n();
+
+  const langBtns = document.querySelectorAll('.lang-btn');
+  langBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      langBtns.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      setLanguage(e.target.dataset.lang);
+      updateSheetSync(); 
+    });
+    if (btn.dataset.lang === getCurrentLanguage()) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
   bindTabs();
   bindSheetEvents();
   bindAudioEvents();
@@ -186,7 +208,7 @@ function bindSheetEvents() {
   prefFlats.addEventListener('click', () => { setPref('flats'); prefFlats.classList.add('active'); });
 
   btnCopy.addEventListener('click', () => {
-    navigator.clipboard.writeText(outputPre.textContent).then(() => showToast('Copied to clipboard!'));
+    navigator.clipboard.writeText(outputPre.textContent).then(() => showToast(t('toast-copy')));
   });
   btnPrint.addEventListener('click', () => window.print());
 }
@@ -210,7 +232,7 @@ function updateSheetSync() {
   const txt = state.inputText;
   if (!txt.trim()) {
     detKeyDisplay.textContent = '—';
-    detKeySub.textContent = 'Paste chords above to detect';
+    detKeySub.textContent = t('det-key-sub-empty');
     outputEmpty.style.display = 'flex';
     outputPre.style.display = 'none';
     capoCard.style.display = 'none';
@@ -224,7 +246,7 @@ function updateSheetSync() {
   
   if (state.detectedKey) {
     detKeyDisplay.textContent = state.detectedKey.fullDisplay;
-    detKeySub.textContent = `Based on logic analysis (${chords.length} chords)`;
+    detKeySub.textContent = t('det-key-sub-detected', { count: chords.length });
     if (!state.targetKey) {
       state.targetKey = state.detectedKey.tonic;
       state.targetMode = state.detectedKey.mode;
@@ -256,7 +278,7 @@ function updateSheetUI() {
       useFlats = true;
     }
 
-    const transposed = transposeSheet(state.inputText, state.semitones, useFlats);
+    const transposed = transposeSheet(state.inputText, state.semitones, useFlats, state.inputFormat);
     outputEmpty.style.display = 'none';
     outputPre.style.display = 'block';
     outputPre.innerHTML = highlightChordsInText(transposed);
@@ -264,13 +286,13 @@ function updateSheetUI() {
     // Update Capo
     if (state.targetKey) {
       capoCard.style.display = 'block';
-      capoSubtitle.textContent = `To play in keys matching target (${state.targetKey})`;
+      capoSubtitle.textContent = t('capo-sub', { key: state.targetKey });
       const caps = calcCapo(state.targetKey, state.targetMode);
       capoGrid.innerHTML = caps.map(c => `
         <div class="capo-item">
           <div class="capo-fret">${c.label}</div>
           <div class="capo-chords">${c.chords}</div>
-          <div class="capo-key">Play using ${c.shapeKey} shapes</div>
+          <div class="capo-key">${t('capo-play-using', { key: c.shapeKey })}</div>
         </div>
       `).join('');
     }
@@ -327,8 +349,11 @@ function bindAudioEvents() {
   audioModeMajor.addEventListener('click', () => { state.audioTargetMode = 'major'; audioModeMajor.classList.add('active'); audioModeMinor.classList.remove('active'); renderKeyGrid(audioKeyGrid, state.audioTargetKey, 'major', updateAudioTargetKey); });
   audioModeMinor.addEventListener('click', () => { state.audioTargetMode = 'minor'; audioModeMinor.classList.add('active'); audioModeMajor.classList.remove('active'); renderKeyGrid(audioKeyGrid, state.audioTargetKey, 'minor', updateAudioTargetKey); });
 
-  fmtWav.addEventListener('click', () => { state.audioOutputFormat = 'wav'; fmtWav.classList.add('active'); fmtMp3.classList.remove('active'); });
-  fmtMp3.addEventListener('click', () => { state.audioOutputFormat = 'mp3'; fmtMp3.classList.add('active'); fmtWav.classList.remove('active'); });
+  fmtWav.addEventListener('click', () => { state.audioOutputFormat = 'wav'; fmtWav.classList.add('active'); fmtMp3.classList.remove('active'); audioQualitySection.style.display = 'block'; });
+  fmtMp3.addEventListener('click', () => { state.audioOutputFormat = 'mp3'; fmtMp3.classList.add('active'); fmtWav.classList.remove('active'); audioQualitySection.style.display = 'none'; });
+
+  qltStandard.addEventListener('click', () => { state.audioExportQuality = 'standard'; qltStandard.classList.add('active'); qltCompact.classList.remove('active'); });
+  qltCompact.addEventListener('click', () => { state.audioExportQuality = 'compact'; qltCompact.classList.add('active'); qltStandard.classList.remove('active'); });
 
   btnTransposeAudio.addEventListener('click', execAudioTranspose);
 }
@@ -372,7 +397,7 @@ async function handleAudioFile(file) {
     audioDetecting.style.display = 'none';
     audioKeyResult.style.display = 'block';
 
-    audioDetKey.textContent = detResult ? detResult.text : 'Unknown';
+    audioDetKey.textContent = detResult ? detResult.text : t('aud-unknown');
     if (detResult) {
       confBar.style.width = `${detResult.confidence}%`;
       confPct.textContent = `${detResult.confidence}%`;
@@ -395,25 +420,27 @@ async function handleAudioFile(file) {
 async function execAudioTranspose() {
   if (!state.audioBuffer || !state.audioDetectedKey) return;
   if (!state.audioTargetKey) {
-    showToast('Select a target key', 'error'); return;
+    showToast(t('toast-sel-target'), 'error'); return;
   }
 
   const semi = getSemitoneDelta(state.audioDetectedKey.tonic, state.audioTargetKey);
   if (semi === 0 && state.audioDetectedKey.mode === state.audioTargetMode) {
-    showToast('Already in target key', 'error'); return;
+    showToast(t('toast-already-target'), 'error'); return;
   }
 
   btnTransposeAudio.disabled = true;
   audioProcessProgress.style.display = 'block';
-  processLabel.textContent = `Pitch Shifting (${semi > 0 ? '+'+semi : semi} steps)...`;
+  processLabel.textContent = t('proc-shift', { semi: semi > 0 ? '+'+semi : semi });
   processBar.style.width = '10%';
 
   try {
+    const targetSampleRate = state.audioExportQuality === 'compact' ? 24000 : state.audioBuffer.sampleRate;
+
     const shiftedBuf = await pitchShiftAudio(state.audioBuffer, semi, (p) => {
       processBar.style.width = `${10 + p*40}%`;
-    });
+    }, targetSampleRate);
 
-    processLabel.textContent = `Encoding ${state.audioOutputFormat.toUpperCase()}...`;
+    processLabel.textContent = t('proc-enc', { fmt: state.audioOutputFormat.toUpperCase() });
     
     let blob;
     if (state.audioOutputFormat === 'mp3') {
@@ -426,16 +453,16 @@ async function execAudioTranspose() {
       });
     }
 
-    processLabel.textContent = "Done!";
+    processLabel.textContent = t('proc-done');
     processBar.style.width = '100%';
 
     const outName = state.audioFile.name.replace(/\.[^/.]+$/, "") + `_(${state.audioTargetKey}_${state.audioTargetMode}).${state.audioOutputFormat}`;
     triggerDownload(blob, outName);
-    showToast('Downloaded successfully!');
+    showToast(t('toast-dl-success'));
 
   } catch (e) {
     console.error(e);
-    showToast('Error during transposition', 'error');
+    showToast(t('toast-err-trans'), 'error');
   } finally {
     setTimeout(() => {
       btnTransposeAudio.disabled = false;

@@ -55,10 +55,17 @@ body {
 .logo-icon {
   font-size: 22px;
   background: var(--grad);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; 
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-.logo-accent { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.logo-accent { 
+  background: var(--grad); 
+  -webkit-background-clip: text; 
+  background-clip: text;
+  -webkit-text-fill-color: transparent; 
+}
 
 .tab-nav { display: flex; gap: 4px; background: var(--glass); padding: 4px; border-radius: 10px; border: 1px solid var(--glass-border); }
 .tab-btn {
@@ -70,6 +77,16 @@ body {
 }
 .tab-btn:hover { color: var(--text); background: var(--glass-hover); }
 .tab-btn.active { background: var(--grad); color: #fff; box-shadow: 0 2px 12px rgba(139,92,246,0.4); }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+.lang-toggle { display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 7px; }
+.lang-btn {
+  padding: 4px 10px; border-radius: 5px; border: none;
+  background: transparent; color: var(--text-2); cursor: pointer;
+  font-size: 11px; font-weight: 600; font-family: var(--font);
+  transition: var(--trans);
+}
+.lang-btn.active { background: var(--purple); color: #fff; }
 
 /* ─── Layout ─── */
 #app { min-height: 100vh; }
@@ -100,7 +117,6 @@ body {
   margin-bottom: 16px;
 }
 .sheet-left { display: flex; flex-direction: column; gap: 16px; }
-.sheet-right { }
 
 /* ─── Input Card ─── */
 .input-card { flex: 1; display: flex; flex-direction: column; }
@@ -170,7 +186,10 @@ textarea::placeholder { color: var(--text-3); }
 .detected-key-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-3); margin-bottom: 6px; }
 .detected-key-display {
   font-size: 36px; font-weight: 800; letter-spacing: -1px;
-  background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background: var(--grad); 
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   line-height: 1.1;
 }
 .detected-key-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
@@ -219,13 +238,13 @@ textarea::placeholder { color: var(--text-3); }
 .key-btn.detected { border-color: var(--gold); color: var(--gold); }
 
 /* Accidental toggle */
-.accidental-ctrl { }
 .toggle-group { display: flex; gap: 4px; }
 .toggle-opt {
   flex: 1; padding: 7px 8px; border-radius: var(--r-sm); border: 1px solid var(--glass-border);
   background: var(--glass); color: var(--text-2); cursor: pointer;
   font-size: 12px; font-weight: 500; font-family: var(--font);
   transition: var(--trans); text-align: center;
+  background-clip: padding-box;
 }
 .toggle-opt:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
 .toggle-opt.active { background: rgba(139,92,246,0.2); border-color: var(--purple); color: var(--purple); }
@@ -248,7 +267,6 @@ textarea::placeholder { color: var(--text-3); }
 }
 
 /* ─── Capo Card ─── */
-.capo-card { }
 .capo-subtitle { font-size: 12px; color: var(--text-3); }
 .capo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 4px; }
 .capo-item {
@@ -260,7 +278,6 @@ textarea::placeholder { color: var(--text-3); }
 .capo-key { font-size: 10px; color: var(--text-3); margin-top: 2px; }
 
 /* ─── Audio Mode ─── */
-.upload-card { }
 .upload-zone {
   border: 2px dashed var(--glass-border);
   border-radius: var(--r);
@@ -290,7 +307,6 @@ textarea::placeholder { color: var(--text-3); }
   display: grid; grid-template-columns: 1fr 360px; gap: 16px;
   margin-top: 16px;
 }
-.waveform-card { }
 .waveform-canvas {
   width: 100%; height: 120px;
   border-radius: var(--r-sm); background: rgba(0,0,0,0.4);
@@ -309,7 +325,6 @@ textarea::placeholder { color: var(--text-3); }
 
 /* Key detection in audio mode */
 .audio-key-card { display: flex; flex-direction: column; gap: 0; }
-.audio-key-card > *:not(.card-header) { }
 .detecting-state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 30px; color: var(--text-2); font-size: 13px; }
 .spinner {
   width: 36px; height: 36px;
@@ -325,7 +340,10 @@ textarea::placeholder { color: var(--text-3); }
 
 .audio-detected-key {
   font-size: 40px; font-weight: 800; letter-spacing: -1.5px;
-  background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background: var(--grad); 
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
   text-align: center; margin-bottom: 12px;
 }
 .confidence-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -337,6 +355,7 @@ textarea::placeholder { color: var(--text-3); }
 .audio-key-section { margin-bottom: 16px; }
 .audio-mode-toggle { display: flex; gap: 3px; background: rgba(0,0,0,0.3); padding: 3px; border-radius: 7px; display: inline-flex; margin-bottom: 10px; }
 .audio-format-section { margin-bottom: 16px; }
+.audio-quality-section { margin-bottom: 16px; }
 
 .audio-process-progress { margin-top: 14px; }
 .process-bar-wrap { height: 6px; background: var(--glass-border); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
@@ -371,7 +390,6 @@ textarea::placeholder { color: var(--text-3); }
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
   .sheet-layout { grid-template-columns: 1fr; }
-  .sheet-right { }
   .audio-layout { grid-template-columns: 1fr; }
   .key-grid { grid-template-columns: repeat(4, 1fr); }
   .capo-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }

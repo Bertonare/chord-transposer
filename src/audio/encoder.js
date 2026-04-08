@@ -1,4 +1,13 @@
 import lamejs from 'lamejs';
+import MPEGMode from 'lamejs/src/js/MPEGMode.js';
+import Lame from 'lamejs/src/js/Lame.js';
+import BitStream from 'lamejs/src/js/BitStream.js';
+
+// Polyfill for legacy lamejs which expects these to be in global scope
+const _global = (typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : {}));
+_global.MPEGMode = MPEGMode;
+_global.Lame = Lame;
+_global.BitStream = BitStream;
 
 /**
  * Encodes an AudioBuffer to a WAV Blob.
@@ -69,7 +78,17 @@ export async function encodeMP3(audioBuffer, onProgress) {
         const channels = audioBuffer.numberOfChannels;
         const sampleRate = audioBuffer.sampleRate;
         const kbps = 192; // default high quality
-        const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, kbps);
+        let mp3encoder;
+        try {
+          // Detect different import styles
+          const Encoder = lamejs.Mp3Encoder || (lamejs.default && lamejs.default.Mp3Encoder);
+          if (!Encoder) throw new Error("Mp3Encoder not found in lamejs module");
+          mp3encoder = new Encoder(channels, sampleRate, kbps);
+        } catch (err) {
+          console.error("Failed to initialize Mp3Encoder:", err);
+          reject(err);
+          return;
+        }
         const mp3Data = [];
 
         const samplesContext = [];
@@ -96,12 +115,11 @@ export async function encodeMP3(audioBuffer, onProgress) {
             rightChunk = samplesContext[1].subarray(i, i + sampleBlockSize);
           }
 
-          const mp3buf = channels === 2
-            ? mp3encoder.encodeBuffer(leftChunk, rightChunk)
-            : mp3encoder.encodeBuffer(leftChunk);
+          const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk || leftChunk);
 
           if (mp3buf.length > 0) {
-            mp3Data.push(mp3buf);
+            // Standardize to Uint8Array for Blob compatibility
+            mp3Data.push(new Uint8Array(mp3buf.buffer, mp3buf.byteOffset, mp3buf.byteLength));
           }
 
           // Very rough progress approximation
@@ -111,12 +129,12 @@ export async function encodeMP3(audioBuffer, onProgress) {
           }
         }
 
-        const mp3buf = mp3encoder.flush();
-        if (mp3buf.length > 0) {
-          mp3Data.push(mp3buf);
+        const flushBuf = mp3encoder.flush();
+        if (flushBuf.length > 0) {
+          mp3Data.push(new Uint8Array(flushBuf.buffer, flushBuf.byteOffset, flushBuf.byteLength));
         }
 
-        const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+        const blob = new Blob(mp3Data, { type: 'audio/mpeg' });
         if (onProgress) onProgress(1.0);
         resolve(blob);
 
