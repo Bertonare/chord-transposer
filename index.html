@@ -57,17 +57,9 @@
               <textarea
                 id="chord-input"
                 data-i18n="placeholder-input"
-                placeholder="Paste your chord sheet here...
-
-Example (Plain):
-Am  F  C  G
-When I find myself in times of trouble
-
-Example (ChordPro):
-[Am]When I [F]find myself [C]in times of [G]trouble"
+                placeholder="Paste your chord sheet here..."
                 spellcheck="false"
               ></textarea>
-              <div class="highlight-overlay" id="highlight-overlay" aria-hidden="true"></div>
             </div>
             <div class="input-footer">
               <button class="ghost-btn" id="btn-clear-input" title="Clear input" data-i18n="btn-clear">
@@ -172,7 +164,7 @@ Example (ChordPro):
     <div id="panel-audio" class="mode-panel">
       <!-- Upload Zone -->
       <div class="card upload-card" id="upload-card">
-        <div class="upload-zone" id="upload-zone">
+        <div class="upload-zone" id="upload-zone" role="button" tabindex="0">
           <div class="upload-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
@@ -196,9 +188,13 @@ Example (ChordPro):
             </div>
             <canvas id="waveform-canvas" class="waveform-canvas"></canvas>
             <div class="audio-controls">
-              <button class="play-btn" id="btn-play-preview">
+              <button class="play-btn" id="btn-play-preview" data-i18n="btn-preview">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <span class="i18n-text" data-i18n="btn-preview">Preview</span>
+                <span class="i18n-text">Preview Original</span>
+              </button>
+              <button class="play-btn preview-shifted-btn" id="btn-preview-shifted" data-i18n="btn-preview-shifted">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span class="i18n-text">Preview Transposed</span>
               </button>
               <div class="audio-duration" id="audio-duration">—</div>
             </div>
@@ -207,7 +203,7 @@ Example (ChordPro):
           <!-- Key Detection Result -->
           <div class="card audio-key-card">
             <div class="card-header">
-              <h2 class="card-title" data-i18n="aud-det-title">Key Detection</h2>
+              <h2 class="card-title" data-i18n="aud-det-title">Key & Pitch Shift</h2>
             </div>
             <div id="audio-detecting" class="detecting-state">
               <div class="spinner"></div>
@@ -225,6 +221,20 @@ Example (ChordPro):
                 </div>
                 <span class="confidence-pct" id="confidence-pct">—</span>
               </div>
+
+              <!-- Manual Semitone Shift -->
+              <div class="audio-semi-section">
+                <label class="ctrl-label" data-i18n="aud-semi-label">Semitone Shift</label>
+                <div class="semitone-row audio-semi-row">
+                  <button class="step-btn" id="audio-semi-down">−</button>
+                  <div class="semitone-display">
+                    <span id="audio-semitone-value">0</span>
+                    <span class="semitone-unit" data-i18n="semi-unit">semitones</span>
+                  </div>
+                  <button class="step-btn" id="audio-semi-up">+</button>
+                </div>
+              </div>
+
               <div class="audio-key-section">
                 <label class="ctrl-label" data-i18n="ctrl-target-label">Target Key</label>
                 <div class="audio-mode-toggle">

@@ -6,14 +6,14 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "chordsheetjs": "latest",
     "lamejs": "^1.2.1",
     "rubberband-wasm": "^3.3.0",
-    "tonal": "^6.4.0",
-    "tone": "^14.7.77"
+    "tonal": "^6.4.0"
   },
   "devDependencies": {
     "vite": "^5.2.0"

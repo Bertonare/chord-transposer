@@ -1,30 +1,49 @@
 /**
+ * Resample an AudioBuffer to `targetSampleRate` using OfflineAudioContext.
+ */
+async function resampleAudioBuffer(audioBuffer, targetSampleRate) {
+  if (!targetSampleRate || targetSampleRate === audioBuffer.sampleRate) {
+    return audioBuffer;
+  }
+  const targetLength = Math.max(
+    1,
+    Math.round((audioBuffer.length * targetSampleRate) / audioBuffer.sampleRate)
+  );
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const offlineCtx = new OfflineCtx(audioBuffer.numberOfChannels, targetLength, targetSampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(offlineCtx.destination);
+  source.start(0);
+  return offlineCtx.startRendering();
+}
+
+/**
  * Pitch shifts an AudioBuffer by a given number of semitones
- * using Rubber Band (WASM) for state-of-the-art quality.
- * 
- * @param {AudioBuffer} audioBuffer - The original audio buffer
- * @param {number} semitones - Number of semitones to shift (negative for down)
- * @param {Function} onProgress - Progress callback
- * @param {number} [targetSampleRate] - Optional sample rate for downsampling
- * @returns {Promise<AudioBuffer>} - Transposed AudioBuffer
+ * using Rubber Band (WASM) in a Web Worker, optionally resampling afterwards.
+ *
+ * @param {AudioBuffer} audioBuffer
+ * @param {number} semitones
+ * @param {Function} onProgress
+ * @param {number} [targetSampleRate]
+ * @returns {Promise<AudioBuffer>}
  */
 export async function pitchShiftAudio(audioBuffer, semitones, onProgress, targetSampleRate) {
   const finalSampleRate = targetSampleRate || audioBuffer.sampleRate;
-  
-  // If no pitch shift and same sample rate, return original
-  if (semitones === 0 && finalSampleRate === audioBuffer.sampleRate) {
-    return audioBuffer;
+
+  if (semitones === 0) {
+    if (onProgress) onProgress(1.0);
+    return resampleAudioBuffer(audioBuffer, finalSampleRate);
   }
 
   const pitchScale = Math.pow(2, semitones / 12);
   const channelCount = audioBuffer.numberOfChannels;
   const channelBuffers = [];
   for (let c = 0; c < channelCount; c++) {
-    channelBuffers.push(audioBuffer.getChannelData(c));
+    channelBuffers.push(new Float32Array(audioBuffer.getChannelData(c)));
   }
 
-  return new Promise((resolve, reject) => {
-    // Vite handles Worker construction with absolute/relative paths
+  const shiftedBuffer = await new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./rubberbandWorker.js', import.meta.url), {
       type: 'module'
     });
@@ -33,17 +52,18 @@ export async function pitchShiftAudio(audioBuffer, semitones, onProgress, target
       const { type, data } = e.data;
 
       if (type === 'ready') {
-        worker.postMessage({
-          type: 'process',
-          data: {
-            channelBuffers,
-            sampleRate: audioBuffer.sampleRate,
-            pitch: pitchScale,
-            // 0: Offline processing, Elastic stretch, Crisp transients
-            // Plus Standard Windowing for 2026 quality
-            options: 0 
-          }
-        });
+        const transferList = channelBuffers.map((b) => b.buffer);
+        worker.postMessage(
+          {
+            type: 'process',
+            data: {
+              channelBuffers,
+              sampleRate: audioBuffer.sampleRate,
+              pitch: pitchScale,
+            }
+          },
+          transferList
+        );
       } else if (type === 'progress') {
         if (onProgress) onProgress(data);
       } else if (type === 'success') {
@@ -53,17 +73,9 @@ export async function pitchShiftAudio(audioBuffer, semitones, onProgress, target
           numberOfChannels: channelCount,
           sampleRate: audioBuffer.sampleRate
         });
-        
+
         for (let c = 0; c < channelCount; c++) {
           newBuffer.copyToChannel(resultBuffers[c], c);
-        }
-
-        // Handle downsampling if requested after pitch shifting
-        if (targetSampleRate && targetSampleRate !== audioBuffer.sampleRate) {
-           // We could resample here, but for simplicity we rely on the next step
-           // or we should have done it during pitch shift.
-           // Actually, Rubber Band handles sampleRate in its initialization.
-           // But it doesn't resample. Let's stick to the promise that it's pitch shifted.
         }
 
         worker.terminate();
@@ -76,14 +88,15 @@ export async function pitchShiftAudio(audioBuffer, semitones, onProgress, target
 
     worker.onerror = (err) => {
       worker.terminate();
-      reject(err);
+      reject(err instanceof Error ? err : new Error(err?.message || 'Worker error'));
     };
 
-    // Initialize worker with WASM path
-    // In Vite, public files are at root /
+    const wasmUrl = new URL(`${import.meta.env.BASE_URL}rubberband.wasm`, window.location.href).href;
     worker.postMessage({
       type: 'init',
-      data: { wasmUrl: '/rubberband.wasm' }
+      data: { wasmUrl }
     });
   });
+
+  return resampleAudioBuffer(shiftedBuffer, finalSampleRate);
 }

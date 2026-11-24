@@ -5,6 +5,15 @@ export default defineConfig({
     port: 5173,
   },
   optimizeDeps: {
-    include: ['tonal', 'chordsheetjs', 'lamejs', 'tone'],
+    include: ['tonal', 'chordsheetjs', 'lamejs'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          music: ['tonal', 'chordsheetjs'],
+        },
+      },
+    },
   },
 });

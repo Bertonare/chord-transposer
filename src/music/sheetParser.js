@@ -1,74 +1,62 @@
 import ChordSheetJS from 'chordsheetjs';
-import { Chord, Interval } from 'tonal';
-import { keyPrefersSharps } from './theory.js';
+import { Chord } from 'tonal';
+import { createChordTokenRegex, transposeChord } from './theory.js';
 
 /**
  * Determine if text is ChordPro format ([Am]Hello [F]world)
  */
-function isChordProFormat(text) {
-  // Match actual chords inside brackets like [Am] or [F#m], rather than just any tag like [Chorus]
+export function isChordProFormat(text) {
   return /\[[A-G][b#]?(?:m(?:aj)?|M|aug(?:5)?|dim(?:7)?|sus[24]?|add)?(?:(?:maj|M)?(?:2|4|5|6|7|9|11|13))?(?:[b#]\d+)*(?:\/[A-G][b#]?)?\]/.test(text);
 }
 
 /**
- * Transpose a full chord sheet by semitones.
- * Auto-detects ChordPro vs plain text format unless format is explicitly provided.
- * Falls back to regex-based transposition if ChordSheetJS fails.
+ * Resolve accidental option ('b' | '#' | null) from boolean or string input.
  */
-export function transposeSheet(text, semitones, useFlats = false, format = 'auto') {
-  if (!text.trim() || semitones === 0) return text;
+function normalizeAccidentalOption(accidentalPref) {
+  if (accidentalPref === true || accidentalPref === 'b' || accidentalPref === 'flats') return 'b';
+  if (accidentalPref === '#' || accidentalPref === 'sharps') return '#';
+  return null;
+}
 
-  // --- Try ChordSheetJS first ---
+/**
+ * Transpose a full chord sheet by semitones.
+ * `accidentalPref`: 'b' | '#' | null (or boolean for backward compatibility)
+ */
+export function transposeSheet(text, semitones, accidentalPref = null, format = 'auto') {
+  if (!text.trim()) return text;
+  const accidental = normalizeAccidentalOption(accidentalPref);
+  if (semitones === 0 && !accidental) return text;
+
   try {
     const chordProMode = format === 'chordpro' || (format === 'auto' && isChordProFormat(text));
-    let parser, formatter;
+    const parser = chordProMode
+      ? new ChordSheetJS.ChordProParser()
+      : new ChordSheetJS.ChordsOverWordsParser({ preserveWhitespace: true });
+    const formatter = chordProMode
+      ? new ChordSheetJS.ChordProFormatter()
+      : new ChordSheetJS.TextFormatter();
 
-    if (chordProMode) {
-      parser = new ChordSheetJS.ChordProParser();
-      formatter = new ChordSheetJS.ChordProFormatter();
-    } else {
-      parser = new ChordSheetJS.ChordsOverWordsParser({ preserveWhitespace: true });
-      formatter = new ChordSheetJS.TextFormatter();
+    let song = parser.parse(text);
+    if (semitones !== 0) {
+      song = song.transpose(semitones, { accidental });
+    } else if (accidental) {
+      song = song.useAccidental(accidental);
     }
-
-    const song = parser.parse(text);
-    const transposed = song.transpose(semitones, { useFlats });
-    return formatter.format(transposed);
-  } catch (e) {
-    // --- Fallback: regex-based transposition using Tonal ---
-    return transposeRegex(text, semitones, useFlats);
+    return formatter.format(song);
+  } catch {
+    return transposeRegex(text, semitones, accidental);
   }
 }
 
 /**
- * Regex-based fallback transposer.
- * Matches chord tokens in text and transposes each with Tonal.
+ * Regex-based fallback transposer using Tonal.
  */
-function transposeRegex(text, semitones, useFlats) {
-  const interval = Interval.fromSemitones(semitones);
-  // Match chord tokens: C, Am, Bm7, F#maj7, G/B, etc.
-  return text.replace(
-    /(?<=^|\s|\[|<|\/|\()([A-G][b#]?(?:m(?:aj)?|M|aug(?:5)?|dim(?:7)?|sus[24]?|add)?(?:(?:maj|M)?(?:2|4|5|6|7|9|11|13))?(?:[b#]\d+)*(?:\/[A-G][b#]?)?)(?=$|\s|\]|>|\/|\)|,|\.|!|\?)/g,
-    (match) => {
-      // Validate with Tonal
-      const chord = Chord.get(match);
-      if (!chord.tonic) return match;
-      const transposed = Chord.transpose(match, interval);
-      if (!transposed) return match;
-      if (useFlats) return toFlat(transposed);
-      return transposed;
-    }
-  );
-}
-
-function toFlat(chordSymbol) {
-  // Replace sharp enharmonics with flat equivalents
-  return chordSymbol
-    .replace(/A#/, 'Bb')
-    .replace(/C#/, 'Db')
-    .replace(/D#/, 'Eb')
-    .replace(/F#/, 'Gb')
-    .replace(/G#/, 'Ab');
+function transposeRegex(text, semitones, accidental) {
+  return text.replace(createChordTokenRegex(), (match) => {
+    const chord = Chord.get(match);
+    if (!chord.tonic) return match;
+    return transposeChord(match, semitones, accidental);
+  });
 }
 
 /**
@@ -81,12 +69,9 @@ export function highlightChordsInText(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  return escaped.replace(
-    /(?<=^|\s|\[|<|\/|\()([A-G][b#]?(?:m(?:aj)?|M|aug(?:5)?|dim(?:7)?|sus[24]?|add)?(?:(?:maj|M)?(?:2|4|5|6|7|9|11|13))?(?:[b#]\d+)*(?:\/[A-G][b#]?)?)(?=$|\s|\]|>|\/|\)|,|\.|!|\?)/g,
-    (match) => {
-      const chord = Chord.get(match);
-      if (!chord.tonic) return match;
-      return `<span class="chord-token">${match}</span>`;
-    }
-  );
+  return escaped.replace(createChordTokenRegex(), (match) => {
+    const chord = Chord.get(match);
+    if (!chord.tonic) return match;
+    return `<span class="chord-token">${match}</span>`;
+  });
 }
